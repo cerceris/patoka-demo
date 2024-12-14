@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -eux
+
+#export PATOKA_X_DIR=`pwd`/../../patoka-x
+
+cargo run

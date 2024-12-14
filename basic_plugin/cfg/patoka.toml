@@ -1,0 +1,29 @@
+[general]
+id = "basic_plugin_demo"
+name = "Basic Plugin Demo"
+url = "http://localhost:14701"
+router_port = 3333
+user_agents = "$PATOKA_ROOT_DIR/cfg/useragents.xml"
+proxy_config = "$PATOKA_ROOT_DIR/cfg/proxy.toml"
+worker_log_level = "trace"
+#number_of_workers = auto
+#number_of_workers = 1
+#external_worker = true
+
+[proxy]
+list = "$PATOKA_ROOT_DIR/cfg/proxies.csv"
+
+[basic_plugin]
+enabled = true
+config = "cfg/basic_plugin.toml"
+
+[center]
+address = "tcp://127.0.0.1:4444"
+
+[task_writers]
+#master = { message_types = ["task_result"] }
+#'subtask_*' = { message_types = ["task_result"] }
+
+[task_readers]
+#master = { message_types = ["task_result"], delay = 1000 }
+#'subtask_*' = { message_types = ["task_result"], delay = 1000 }
