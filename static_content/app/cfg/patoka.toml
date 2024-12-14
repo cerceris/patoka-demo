@@ -1,0 +1,29 @@
+[general]
+id = "static_content_demo"
+name = "Static Content Demo"
+url = "http://localhost:14702"
+router_port = 3333
+user_agents = "$PATOKA_ROOT_DIR/cfg/useragents.xml"
+proxy_config = "$PATOKA_ROOT_DIR/cfg/proxy.toml"
+worker_log_level = "trace"
+#number_of_workers = auto
+#number_of_workers = 1
+
+[proxy]
+disabled = true
+list = "$PATOKA_ROOT_DIR/cfg/proxies.csv"
+
+[static_content]
+enabled = true
+config = "cfg/static_content.toml"
+
+[center]
+address = "tcp://127.0.0.1:4444"
+
+[task_writers]
+#master = { message_types = ["task_result"] }
+#'subtask_*' = { message_types = ["task_result"] }
+
+[task_readers]
+#master = { message_types = ["task_result"], delay = 1000 }
+#'subtask_*' = { message_types = ["task_result"], delay = 1000 }

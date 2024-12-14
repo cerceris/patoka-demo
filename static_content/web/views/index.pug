@@ -1,0 +1,8 @@
+html
+  head
+    title= title
+  body
+    ul
+      each v, k in countries
+        li
+          a(href=k, title= v.name)= v.name
