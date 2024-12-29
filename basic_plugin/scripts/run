@@ -2,6 +2,7 @@
 
 set -eux
 
-#export PATOKA_X_DIR=`pwd`/../../patoka-x
+export LD_LIBRARY_PATH=/usr/local/lib
+export PATOKA_X_DIR=`pwd`/../../patoka-x
 
 cargo run

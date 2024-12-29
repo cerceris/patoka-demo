@@ -2,6 +2,8 @@
 name = "static_content"
 version = "0.1.0"
 authors = ["Andrei Borodaenko <andrei.borodaenko@gmail.com>"]
+edition = "2021"
+license = "MIT"
 
 [dependencies]
 actix = "0.13"

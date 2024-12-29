@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -eux
+
+export LD_LIBRARY_PATH=/usr/local/lib
+export PATOKA_ROOT_DIR=`pwd`/../../../patoka
+export PATOKA_X_DIR=`pwd`/../../../patoka-x
+
+cargo run

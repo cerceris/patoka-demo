@@ -20,7 +20,7 @@ use patoka::{
     },
 };
 
-use tasks::subtask;
+use crate::tasks::subtask;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MasterTaskParams {
