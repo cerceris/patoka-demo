@@ -7,6 +7,7 @@ use patoka::{
     control::message::StopTask,
     core::logger::create_logger,
     core::env,
+    handle_message, handle_worker_message, handle_stop_task_message,
     worker::{
         client::{WorkerClient, ClientContext},
         controller,
@@ -36,33 +37,27 @@ pub struct SubtaskClient {
     ctx: ClientContext<GenTaskDefinition<SubtaskParams>>,
 }
 
-impl Actor for SubtaskClient {
-    type Context = Context<Self>;
+actor_started_stopped!(SubtaskClient, self, ctx, {
+    info!(self.log, "Demo Subtask Client started.");
 
-    fn started(&mut self, ctx: &mut Self::Context) {
-        info!(self.log, "Demo Subtask Client started.");
+    setup_with_controller(
+        &self.ctx.task_definition.task_uuid, /* Task UUID */
+        None, /* ControlMessage */
+        None, /* TaskUpdate */
+        ctx.address().recipient(), /* WorkerMessage */
+        &self.ctx.controller_addr, /* Controller */
+        self.ctx.task_definition.make_message(), /* Message to start */
+        self.ctx.task_definition.name.clone(),
+    );
+}, {
+    info!(self.log, "Demo Subtask Client stopped.");
 
-        setup_with_controller(
-            &self.ctx.task_definition.task_uuid, /* Task UUID */
-            None, /* ControlMessage */
-            None, /* TaskUpdate */
-            ctx.address().recipient(), /* WorkerMessage */
-            &self.ctx.controller_addr, /* Controller */
-            self.ctx.task_definition.make_message(), /* Message to start */
-            self.ctx.task_definition.name.clone(),
-        );
-    }
-
-    fn stopped(&mut self, _ctx: &mut Self::Context) {
-        info!(self.log, "Demo Subtask Client stopped.");
-
-        send_center_task_finished(
-            &self.ctx.task_uuid,
-            TaskStatus::FinishedSuccess,
-            &self.ctx.task_definition.name,
-        );
-    }
-}
+    send_center_task_finished(
+        &self.ctx.task_uuid,
+        TaskStatus::FinishedSuccess,
+        &self.ctx.task_definition.name,
+    );
+});
 
 impl SubtaskClient {
     fn process_task_result(&mut self, res: SubtaskExecutionResult) {
@@ -72,23 +67,6 @@ impl SubtaskClient {
             self.ctx.task_definition.params.number,
             res.square,
         );
-    }
-
-    fn handle_worker_message(
-        &mut self,
-        msg: WorkerMessage,
-        ctx: &mut <Self as Actor>::Context
-    ) {
-        trace!(self.log, "Received a worker message.");
-
-        if let Some(task_result) = msg.payload.data.get("task_result") {
-            self.process_task_result(
-                serde_json::from_value(task_result.clone()).unwrap()
-            );
-
-            // Done.
-            ctx.stop();
-        }
     }
 }
 
@@ -103,9 +81,20 @@ impl WorkerClient for SubtaskClient {
     }
 }
 
-handler_impl_worker_message!(SubtaskClient);
+handle_worker_message!(SubtaskClient, (), self, msg, ctx, {
+    trace!(self.log, "Received a worker message.");
 
-handler_impl_stop_task!(SubtaskClient);
+    if let Some(task_result) = msg.payload.data.get("task_result") {
+        self.process_task_result(
+            serde_json::from_value(task_result.clone()).unwrap()
+        );
+
+        // Done.
+        ctx.stop();
+    }
+});
+
+handle_stop_task_message!(SubtaskClient);
 
 pub type Subtask = WorkerTask<SubtaskClient>;
 

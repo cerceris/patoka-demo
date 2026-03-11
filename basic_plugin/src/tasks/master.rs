@@ -8,6 +8,7 @@ use patoka::{
     control::message::StopTask,
     core::logger::create_logger,
     core::env,
+    handle_message, handle_worker_message, handle_stop_task_message,
     worker::{
         client::{WorkerClient, ClientContext, GenClientContext},
         controller,
@@ -54,33 +55,27 @@ pub struct MasterClient {
     finished_subtasks: HashSet<String>,
 }
 
-impl Actor for MasterClient {
-    type Context = Context<Self>;
+actor_started_stopped!(MasterClient, self, ctx, {
+    info!(self.log, "Demo Master Client started.");
 
-    fn started(&mut self, ctx: &mut Self::Context) {
-        info!(self.log, "Demo Master Client started.");
+    setup_with_controller(
+        &self.ctx.task_definition.task_uuid, /* Task UUID */
+        None, /* ControlMessage */
+        Some(ctx.address().recipient()), /* TaskUpdate */
+        ctx.address().recipient(), /* WorkerMessage */
+        &self.ctx.controller_addr, /* Controller */
+        self.ctx.task_definition.make_message(), /* Message to start */
+        self.ctx.task_definition.name.clone(),
+    );
+}, {
+    info!(self.log, "Demo Master Client stopped.");
 
-        setup_with_controller(
-            &self.ctx.task_definition.task_uuid, /* Task UUID */
-            None, /* ControlMessage */
-            Some(ctx.address().recipient()), /* TaskUpdate */
-            ctx.address().recipient(), /* WorkerMessage */
-            &self.ctx.controller_addr, /* Controller */
-            self.ctx.task_definition.make_message(), /* Message to start */
-            self.ctx.task_definition.name.clone(),
-        );
-    }
-
-    fn stopped(&mut self, _ctx: &mut Self::Context) {
-        info!(self.log, "Demo Master Client stopped.");
-
-        send_center_task_finished(
-            &self.ctx.task_uuid,
-            TaskStatus::FinishedSuccess,
-            &self.ctx.task_definition.name,
-        );
-    }
-}
+    send_center_task_finished(
+        &self.ctx.task_uuid,
+        TaskStatus::FinishedSuccess,
+        &self.ctx.task_definition.name,
+    );
+});
 
 impl MasterClient {
     fn process_task_result(
@@ -126,21 +121,6 @@ impl MasterClient {
             task_tracker.do_send(task_subscription);
         }
     }
-
-    fn handle_worker_message(
-        &mut self,
-        msg: WorkerMessage,
-        ctx: &mut <Self as Actor>::Context
-    ) {
-        debug!(self.log, "Received a worker message.");
-
-        if let Some(task_result) = msg.payload.data.get("task_result") {
-            self.process_task_result(
-                serde_json::from_value(task_result.clone()).unwrap(),
-                ctx.address(),
-            );
-        }
-    }
 }
 
 impl WorkerClient for MasterClient {
@@ -156,44 +136,45 @@ impl WorkerClient for MasterClient {
     }
 }
 
-impl Handler<TaskUpdate> for MasterClient {
-    type Result = ();
+handle_task_update_message!(MasterClient, self, msg, ctx, {
+    debug!(self.log, "Received status update for task {}", msg.task_uuid);
 
-    fn handle(
-        &mut self,
-        msg: TaskUpdate,
-        ctx: &mut Self::Context
-    ) -> Self::Result {
-        debug!(self.log, "Received status update for task {}", msg.task_uuid);
-
-        match msg.status {
-            TaskStatus::FinishedSuccess | TaskStatus::FinishedFailure => {
-                if self.created_subtasks.contains(&msg.task_uuid) {
-                    self.finished_subtasks.insert(msg.task_uuid);
-                    debug!(
-                        self.log,
-                        "{} of {} subtasks completed.",
-                        self.finished_subtasks.len(),
-                        self.created_subtasks.len(),
-                    );
-                }
-            },
-            _ => { }
-        }
-
-        if self.finished_subtasks.len() == self.created_subtasks.len() {
-            // All subtasks are completed.
-            self.unsubscribe_from_subtasks(ctx.address());
-
-            // Done.
-            ctx.stop();
-        }
+    match msg.status {
+        TaskStatus::FinishedSuccess | TaskStatus::FinishedFailure => {
+            if self.created_subtasks.contains(&msg.task_uuid) {
+                self.finished_subtasks.insert(msg.task_uuid);
+                debug!(
+                    self.log,
+                    "{} of {} subtasks completed.",
+                    self.finished_subtasks.len(),
+                    self.created_subtasks.len(),
+                );
+            }
+        },
+        _ => { }
     }
-}
 
-handler_impl_worker_message!(MasterClient);
+    if self.finished_subtasks.len() == self.created_subtasks.len() {
+        // All subtasks are completed.
+        self.unsubscribe_from_subtasks(ctx.address());
 
-handler_impl_stop_task!(MasterClient);
+        // Done.
+        ctx.stop();
+    }
+});
+
+handle_worker_message!(MasterClient, (), self, msg, ctx, {
+    debug!(self.log, "Received a worker message.");
+
+    if let Some(task_result) = msg.payload.data.get("task_result") {
+        self.process_task_result(
+            serde_json::from_value(task_result.clone()).unwrap(),
+            ctx.address(),
+        );
+    }
+});
+
+handle_stop_task_message!(MasterClient);
 
 type MasterTask = WorkerTask<MasterClient>;
 

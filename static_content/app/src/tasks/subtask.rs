@@ -45,33 +45,27 @@ pub struct SubtaskClient {
     ctx: ClientContext<GenTaskDefinition<SubtaskParams>>,
 }
 
-impl Actor for SubtaskClient {
-    type Context = Context<Self>;
+actor_started_stopped!(SubtaskClient, self, ctx, {
+    info!(self.log, "Demo Subtask Client started.");
 
-    fn started(&mut self, ctx: &mut Self::Context) {
-        info!(self.log, "Demo Subtask Client started.");
+    setup_with_controller(
+        &self.ctx.task_definition.task_uuid, /* Task UUID */
+        None, /* ControlMessage */
+        None, /* TaskUpdate */
+        ctx.address().recipient(), /* WorkerMessage */
+        &self.ctx.controller_addr, /* Controller */
+        self.ctx.task_definition.make_message(), /* Message to start */
+        self.ctx.task_definition.name.clone(),
+    );
+}, {
+    info!(self.log, "Demo Subtask Client stopped.");
 
-        setup_with_controller(
-            &self.ctx.task_definition.task_uuid, /* Task UUID */
-            None, /* ControlMessage */
-            None, /* TaskUpdate */
-            ctx.address().recipient(), /* WorkerMessage */
-            &self.ctx.controller_addr, /* Controller */
-            self.ctx.task_definition.make_message(), /* Message to start */
-            self.ctx.task_definition.name.clone(),
-        );
-    }
-
-    fn stopped(&mut self, _ctx: &mut Self::Context) {
-        info!(self.log, "Demo Subtask Client stopped.");
-
-        send_center_task_finished(
-            &self.ctx.task_uuid,
-            TaskStatus::FinishedSuccess,
-            &self.ctx.task_definition.name,
-        );
-    }
-}
+    send_center_task_finished(
+        &self.ctx.task_uuid,
+        TaskStatus::FinishedSuccess,
+        &self.ctx.task_definition.name,
+    );
+});
 
 impl SubtaskClient {
     fn process_task_result(&mut self, res: SubtaskExecutionResult) {
@@ -113,9 +107,11 @@ impl WorkerClient for SubtaskClient {
     }
 }
 
-handler_impl_worker_message!(SubtaskClient);
+handle_worker_message!(SubtaskClient, (), self, msg, ctx, {
+    self.handle_worker_message(msg, ctx);
+});
 
-handler_impl_stop_task!(SubtaskClient);
+handle_stop_task_message!(SubtaskClient);
 
 pub type Subtask = WorkerTask<SubtaskClient>;
 
